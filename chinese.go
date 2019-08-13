@@ -43,7 +43,7 @@ var (
 )
 
 var (
-	CHT = &ChineseFormat{
+	Upper = &ChineseFormat{
 		Basic: [10]string{
 			"零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖",
 		},
@@ -55,7 +55,7 @@ var (
 		},
 	}
 
-	CHS = &ChineseFormat{
+	Lower = &ChineseFormat{
 		Basic: [10]string{
 			"零", "一", "二", "三", "四", "五", "六", "七", "八", "九",
 		},
@@ -122,8 +122,8 @@ func (c *Chinese) DecodeString(s string) (n int, err error) {
 	return c.Decode(*(*[]byte)(unsafe.Pointer(&s)))
 }
 
-func (c Chinese) encodeZreo(w io.Writer) (err error) {
-	_, err = io.WriteString(w, CHS.Basic[0])
+func (c Chinese) encodeZreo(w io.Writer, opt *ChineseFormat) (err error) {
+	_, err = io.WriteString(w, opt.Basic[0])
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (c Chinese) encodeZreo(w io.Writer) (err error) {
 
 func (c Chinese) encodeToWriter(w io.Writer, opt *ChineseFormat) (err error) {
 	if c == 0 {
-		return c.encodeZreo(w)
+		return c.encodeZreo(w, opt)
 	}
 	for c != 0 {
 		switch {
@@ -147,7 +147,7 @@ func (c Chinese) encodeToWriter(w io.Writer, opt *ChineseFormat) (err error) {
 			}
 			c %= 1e8
 			if c != 0 && c < 1e7 {
-				err = c.encodeZreo(w)
+				err = c.encodeZreo(w, opt)
 				if err != nil {
 					return err
 				}
@@ -163,7 +163,7 @@ func (c Chinese) encodeToWriter(w io.Writer, opt *ChineseFormat) (err error) {
 			}
 			c %= 1e4
 			if c != 0 && c < 1e3 {
-				err = c.encodeZreo(w)
+				err = c.encodeZreo(w, opt)
 				if err != nil {
 					return err
 				}
@@ -179,7 +179,7 @@ func (c Chinese) encodeToWriter(w io.Writer, opt *ChineseFormat) (err error) {
 			}
 			c %= 1e3
 			if c != 0 && c < 1e2 {
-				err = c.encodeZreo(w)
+				err = c.encodeZreo(w, opt)
 				if err != nil {
 					return err
 				}
@@ -191,14 +191,11 @@ func (c Chinese) encodeToWriter(w io.Writer, opt *ChineseFormat) (err error) {
 			}
 			_, err = io.WriteString(w, opt.Carry10[1])
 			if err != nil {
-				err = c.encodeZreo(w)
-				if err != nil {
-					return err
-				}
+				return err
 			}
 			c %= 1e2
 			if c != 0 && c < 10 {
-				err = c.encodeZreo(w)
+				err = c.encodeZreo(w, opt)
 				if err != nil {
 					return err
 				}
@@ -242,7 +239,7 @@ func (c Chinese) EncodeToString(opt *ChineseFormat) (string, error) {
 }
 
 func (c Chinese) String() string {
-	ret, err := c.EncodeToString(CHS)
+	ret, err := c.EncodeToString(Lower)
 	if err != nil {
 		return fmt.Sprintf("Chinese(%d)", uint64(c))
 	}

@@ -7,7 +7,7 @@ import (
 
 func TestChinese(t *testing.T) {
 	for i := Chinese(0); i != 1e6; i++ {
-		tmp, err := i.EncodeToString(CHS)
+		tmp, err := i.EncodeToString(Lower)
 		if err != nil {
 			t.Error(err)
 		}
@@ -23,7 +23,7 @@ func TestChinese(t *testing.T) {
 
 	for i := Chinese(0); i != 1e6; i++ {
 		j := i + math.MaxUint64
-		tmp, err := j.EncodeToString(CHS)
+		tmp, err := j.EncodeToString(Lower)
 		if err != nil {
 			t.Error(err)
 		}
