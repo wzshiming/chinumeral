@@ -15,6 +15,12 @@ go get -u -v github.com/wzshiming/chinumeral
 ## Example
 
 ``` golang
+Chinese(1000).EncodeToString(Lower)  // 一千
+Chinese(1000).EncodeToString(Number) // 一〇〇〇
+Chinese(1000).EncodeToString(Upper)  // 壹仟
+```
+
+``` golang
 func TestChinese(t *testing.T) {
 	for i := Chinese(0); i != 1e6; i++ {
 		tmp, err := i.EncodeToString(Lower)
