@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"unicode/utf8"
 	"unsafe"
 )
@@ -43,7 +44,7 @@ var (
 )
 
 var (
-	Upper = &ChineseFormat{
+	Upper = &ChineseOption{
 		Basic: [10]string{
 			"零", "壹", "贰", "叁", "肆", "伍", "陆", "柒", "捌", "玖",
 		},
@@ -55,7 +56,7 @@ var (
 		},
 	}
 
-	Lower = &ChineseFormat{
+	Lower = &ChineseOption{
 		Basic: [10]string{
 			"零", "一", "二", "三", "四", "五", "六", "七", "八", "九",
 		},
@@ -66,9 +67,19 @@ var (
 			"万", "亿",
 		},
 	}
+
+	Number = &ChineseOption{
+		Number: true,
+		Basic: [10]string{
+			"〇", "一", "二", "三", "四", "五", "六", "七", "八", "九",
+		},
+	}
 )
 
-type ChineseFormat struct {
+type ChineseOption struct {
+	// 序号 如 年份 编号
+	Number bool
+
 	// 零 至 九
 	Basic [10]string
 
@@ -122,7 +133,33 @@ func (c *Chinese) DecodeString(s string) (n int, err error) {
 	return c.Decode(*(*[]byte)(unsafe.Pointer(&s)))
 }
 
-func (c Chinese) encodeZreo(w io.Writer, opt *ChineseFormat) (err error) {
+func (c Chinese) encodeNumber(w io.Writer, opt *ChineseOption) (err error) {
+	length := int(math.Log10(float64(c)))
+	mark := uint64(math.Pow10(length))
+	c0 := uint64(c)
+	for mark != 0 {
+		ch := opt.Basic[c0/mark]
+		_, err = io.WriteString(w, ch)
+		if err != nil {
+			return err
+		}
+		c0 %= mark
+		mark /= 10
+	}
+	return nil
+}
+
+func (c Chinese) getZeroSize() int {
+	ol := int(math.Log10(float64(c)))
+	nl := int(math.Log10(float64(c % 10)))
+	return ol - nl
+}
+
+func (c Chinese) encodeZero(w io.Writer, opt *ChineseOption) (err error) {
+	length := c.getZeroSize()
+	if length == 0 {
+		return nil
+	}
 	_, err = io.WriteString(w, opt.Basic[0])
 	if err != nil {
 		return err
@@ -130,9 +167,10 @@ func (c Chinese) encodeZreo(w io.Writer, opt *ChineseFormat) (err error) {
 	return nil
 }
 
-func (c Chinese) encodeToWriter(w io.Writer, opt *ChineseFormat) (err error) {
+func (c Chinese) encodeToWriter(w io.Writer, opt *ChineseOption) (err error) {
 	if c == 0 {
-		return c.encodeZreo(w, opt)
+		_, err = io.WriteString(w, opt.Basic[0])
+		return err
 	}
 	for c != 0 {
 		switch {
@@ -141,70 +179,71 @@ func (c Chinese) encodeToWriter(w io.Writer, opt *ChineseFormat) (err error) {
 			if err != nil {
 				return err
 			}
+
 			_, err = io.WriteString(w, opt.Carry1e4[1])
 			if err != nil {
 				return err
 			}
-			c %= 1e8
-			if c != 0 && c < 1e7 {
-				err = c.encodeZreo(w, opt)
-				if err != nil {
-					return err
-				}
+
+			err = c.encodeZero(w, opt)
+			if err != nil {
+				return err
 			}
+			c %= 1e8
 		case c >= 1e4:
 			err = (c / 1e4).encodeToWriter(w, opt)
 			if err != nil {
 				return err
 			}
+
 			_, err = io.WriteString(w, opt.Carry1e4[0])
 			if err != nil {
 				return err
 			}
-			c %= 1e4
-			if c != 0 && c < 1e3 {
-				err = c.encodeZreo(w, opt)
-				if err != nil {
-					return err
-				}
+
+			err = c.encodeZero(w, opt)
+			if err != nil {
+				return err
 			}
+			c %= 1e4
 		case c >= 1e3:
 			err = (c / 1e3).encodeToWriter(w, opt)
 			if err != nil {
 				return err
 			}
+
 			_, err = io.WriteString(w, opt.Carry10[2])
 			if err != nil {
 				return err
 			}
-			c %= 1e3
-			if c != 0 && c < 1e2 {
-				err = c.encodeZreo(w, opt)
-				if err != nil {
-					return err
-				}
+
+			err = c.encodeZero(w, opt)
+			if err != nil {
+				return err
 			}
+			c %= 1e3
 		case c >= 1e2:
 			err = (c / 1e2).encodeToWriter(w, opt)
 			if err != nil {
 				return err
 			}
+
 			_, err = io.WriteString(w, opt.Carry10[1])
 			if err != nil {
 				return err
 			}
-			c %= 1e2
-			if c != 0 && c < 10 {
-				err = c.encodeZreo(w, opt)
-				if err != nil {
-					return err
-				}
+
+			err = c.encodeZero(w, opt)
+			if err != nil {
+				return err
 			}
+			c %= 1e2
 		case c >= 10:
 			err = (c / 10).encodeToWriter(w, opt)
 			if err != nil {
 				return err
 			}
+
 			_, err = io.WriteString(w, opt.Carry10[0])
 			if err != nil {
 				return err
@@ -215,22 +254,29 @@ func (c Chinese) encodeToWriter(w io.Writer, opt *ChineseFormat) (err error) {
 			if err != nil {
 				return err
 			}
-			return nil
+			c = 0
 		}
 	}
 	return nil
 }
 
-func (c Chinese) Encode(opt *ChineseFormat) ([]byte, error) {
+func (c Chinese) Encode(opt *ChineseOption) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
-	err := c.encodeToWriter(buf, opt)
-	if err != nil {
-		return nil, err
+	if opt.Number {
+		err := c.encodeNumber(buf, opt)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err := c.encodeToWriter(buf, opt)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return buf.Bytes(), nil
 }
 
-func (c Chinese) EncodeToString(opt *ChineseFormat) (string, error) {
+func (c Chinese) EncodeToString(opt *ChineseOption) (string, error) {
 	b, err := c.Encode(opt)
 	if err != nil {
 		return "", err
