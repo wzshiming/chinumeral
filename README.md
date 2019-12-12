@@ -5,6 +5,7 @@ Chinese numerals in Go
 [![Go Report Card](https://goreportcard.com/badge/github.com/wzshiming/chinumeral)](https://goreportcard.com/report/github.com/wzshiming/chinumeral)
 [![GoDoc](https://godoc.org/github.com/wzshiming/chinumeral?status.svg)](https://godoc.org/github.com/wzshiming/chinumeral)
 [![GitHub license](https://img.shields.io/github/license/wzshiming/chinumeral.svg)](https://github.com/wzshiming/chinumeral/blob/master/LICENSE)
+[![gocover.io](https://gocover.io/_badge/github.com/wzshiming/chinumeral)](https://gocover.io/github.com/wzshiming/chinumeral)
 
 ## Install
 
